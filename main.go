@@ -20,6 +20,7 @@ import (
 	"github.com/giorgisio/goav/avcodec"
 	"github.com/giorgisio/goav/avformat"
 	"github.com/giorgisio/goav/avutil"
+	"github.com/giorgisio/goav/swresample"
 )
 
 var (
@@ -30,8 +31,16 @@ var (
 	reqs      = make(map[string]map[*Stream]TransCoder)
 )
 
-type Context C.struct_AVCodecContext
+type (
+	Frame   C.struct_AVFrame
+	Context C.struct_AVCodecContext
+)
 
+func (c *Frame) SetSample(fmt int, rate int, cl int64) {
+	c.format = C.int(fmt)
+	c.sample_rate = C.int(rate)
+	c.channel_layout = C.uint64_t(cl)
+}
 func (c *Context) SetSample(fmt int32, rate int, channels int) {
 	c.sample_fmt = fmt
 	c.sample_rate = C.int(rate)
@@ -112,11 +121,20 @@ func run() {
 	go AddHook(HOOK_REQUEST_TRANSAUDIO, onRequest)
 	go AddHook(HOOK_UNSUBSCRIBE, onUnsubscribe)
 }
+func soundType2Layout(st byte) int64 {
+	if st == 0 {
+		return 1
+	} else {
+		return 3
+	}
+}
 func (tc *TransCoder) transcode(s *Stream, encCodec string) {
 	tc.Subscriber = &Subscriber{
 		ID: "ffmpeg",
 	}
 	s.Subscribe(tc.Subscriber)
+	pSwrCtx := swresample.SwrAlloc()
+	defer pSwrCtx.SwrFree()
 	var decCtx *avcodec.Context
 	var ret int
 	// encCtx2:=(*avformat.CodecContext)(unsafe.Pointer(encCtx))
@@ -136,25 +154,21 @@ func (tc *TransCoder) transcode(s *Stream, encCodec string) {
 		tc.Close()
 		return
 	}
+	defer decCtx.AvcodecFreeContext()
 	utils.Println("decCtx.AvcodecOpen2", ret)
 	encCtx := encCodecs[encCodec].AvcodecAllocContext3()
-	encCtx2 := (*Context)(unsafe.Pointer(encCtx))
-	encCtx2.SetSample(int32(decCtx.SampleFmt()), 8000, 1)
-	ret = encCtx.AvcodecOpen2(encCodecs[encCodec], nil)
-	utils.Println("encCtx.AvcodecOpen2", ret, encCtx.SampleFmt(), encCtx.SampleRate(), encCtx.Channels())
-	if ret != 0 {
-		log.Fatal(ret)
-	}
+	defer encCtx.AvcodecFreeContext()
 	p := avcodec.AvPacketAlloc()
 	p2 := avcodec.AvPacketAlloc()
 	p2.AvInitPacket()
-	frame0 := avutil.AvFrameAlloc()
-	frame := (*avcodec.Frame)(unsafe.Pointer(frame0))
+	defer p.AvFreePacket()
+	defer p2.AvFreePacket()
 	// var got_output int
 	at := tc.GetAudioTrack(encCodec)
 	at.SoundRate = 44000
 	at.SoundSize = tc.OriginAudioTrack.SoundSize
 	at.SoundType = tc.OriginAudioTrack.SoundType
+	var encodeFormat int32
 	switch encCodec {
 	case "aac":
 		at.SoundFormat = 10
@@ -163,34 +177,62 @@ func (tc *TransCoder) transcode(s *Stream, encCodec string) {
 		at.RtmpTag = []byte{0xAF, 0x00, byte(config1), byte(config2)}
 	case "pcma":
 		at.SoundFormat = 7
+		at.SoundRate = 8000
+		encodeFormat = 1
 		tmp := at.SoundFormat<<4 | byte(3)<<3 | at.SoundSize<<1 | at.SoundType
 		at.RtmpTag = []byte{tmp}
 	case "pcmu":
 		at.SoundFormat = 8
+		at.SoundRate = 8000
+		encodeFormat = 1
 		tmp := at.SoundFormat<<4 | byte(3)<<3 | at.SoundSize<<1 | at.SoundType
 		at.RtmpTag = []byte{tmp}
 	}
+	encCtx.SetTimebase(1, at.SoundRate)
+	encCtx2 := (*Context)(unsafe.Pointer(encCtx))
+	encCtx2.SetSample(encodeFormat, at.SoundRate, int(at.SoundType+1))
+	ret = encCtx.AvcodecOpen2(encCodecs[encCodec], nil)
+	if ret != 0 {
+		log.Fatal("encCtx.AvcodecOpen2:", ret)
+	}
+	pSwrCtx.SwrAllocSetOpts(soundType2Layout(at.SoundType+1), swresample.AvSampleFormat(encCtx.SampleFmt()), encCtx.SampleRate(), soundType2Layout(tc.OriginAudioTrack.SoundType), swresample.AvSampleFormat(decCtx.SampleFmt()), tc.OriginAudioTrack.SoundRate, 0, 0)
+	ret = pSwrCtx.SwrInit()
+	if ret != 0 {
+		log.Fatal("pSwrCtx.SwrInit:", ret)
+	}
+	frame0 := avutil.AvFrameAlloc()
+	defer avutil.AvFrameFree(frame0)
+	frame := (*avcodec.Frame)(unsafe.Pointer(frame0))
+	frame1 := (*swresample.Frame)(unsafe.Pointer(frame0))
+	frameOut0 := avutil.AvFrameAlloc()
+	defer avutil.AvFrameFree(frameOut0)
+	(*Frame)(unsafe.Pointer(frameOut0)).SetSample(int(encodeFormat), encCtx.SampleRate(), soundType2Layout(tc.OriginAudioTrack.SoundType))
+	frameOut := (*avcodec.Frame)(unsafe.Pointer(frameOut0))
+	frameOut1 := (*swresample.Frame)(unsafe.Pointer(frameOut0))
 	tc.OnAudio = func(pack AudioPack) {
 		header := (*reflect.SliceHeader)(unsafe.Pointer(&pack.Payload))
 		p.AvPacketFromData((*uint8)(unsafe.Pointer(header.Data)), header.Len)
 		ret := decCtx.AvcodecSendPacket(p)
 		for ret >= 0 {
-			ret = decCtx.AvcodecReceiveFrame(frame)
-			utils.Println("decode ret:", ret)
-			ret = encCtx2.AvcodecSendFrame(frame)
-			//ret = encCtx.AvcodecEncodeAudio2(p2, frame, &got_output)
-			utils.Println("encode ret:", ret)
-			ret = encCtx2.AvcodecReceivePacket(p2)
-			utils.Println("AvcodecReceivePacket ret:", ret)
-			// if got_output > 0 {
-			// 	at.Push(pack.Timestamp, cdata2go(p2.Data(), p2.Size()))
-			// }
+			if ret = decCtx.AvcodecReceiveFrame(frame); ret < 0 {
+				return
+			}
+			ret2 := pSwrCtx.SwrConvertFrame(frameOut1, frame1)
+			if ret2 != 0 {
+				utils.Println("SwrConvertFrame ret:", ret2)
+			}
+			if ret2 = encCtx2.AvcodecSendFrame(frameOut); ret != 0 {
+				utils.Println("encode ret:", ret2)
+			}
+
+			if ret2 = encCtx2.AvcodecReceivePacket(p2); ret != 0 {
+				utils.Println("AvcodecReceivePacket ret:", ret2)
+			}
 			at.Push(pack.Timestamp, cdata2go(p2.Data(), p2.Size()))
 		}
 	}
 	tc.PlayAudio(tc.OriginAudioTrack)
-	p.AvFreePacket()
-	p2.AvFreePacket()
+	
 }
 func cdata2go(data *uint8, size int) (payload []byte) {
 	p := uintptr(unsafe.Pointer(data))
