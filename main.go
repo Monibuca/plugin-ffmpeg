@@ -11,7 +11,6 @@ package plugin_ffmpeg
 //#include <libavutil/avutil.h>
 import "C"
 import (
-	"log"
 	"reflect"
 	"unsafe"
 
@@ -155,7 +154,11 @@ func (tc *TransCoder) transcode(s *Stream, encCodec string) {
 		return
 	}
 	defer decCtx.AvcodecFreeContext()
-	utils.Println("decCtx.AvcodecOpen2", ret)
+	if ret != 0 {
+		utils.Println("decCtx.AvcodecOpen2", ret)
+		return
+	}
+	defer decCtx.AvcodecClose()
 	encCtx := encCodecs[encCodec].AvcodecAllocContext3()
 	defer encCtx.AvcodecFreeContext()
 	p := avcodec.AvPacketAlloc()
@@ -193,12 +196,15 @@ func (tc *TransCoder) transcode(s *Stream, encCodec string) {
 	encCtx2.SetSample(encodeFormat, at.SoundRate, int(at.SoundType+1))
 	ret = encCtx.AvcodecOpen2(encCodecs[encCodec], nil)
 	if ret != 0 {
-		log.Fatal("encCtx.AvcodecOpen2:", ret)
+		utils.Println("encCtx.AvcodecOpen2:", ret)
+		return
 	}
+	defer encCtx.AvcodecClose()
 	pSwrCtx.SwrAllocSetOpts(soundType2Layout(at.SoundType+1), swresample.AvSampleFormat(encCtx.SampleFmt()), encCtx.SampleRate(), soundType2Layout(tc.OriginAudioTrack.SoundType), swresample.AvSampleFormat(decCtx.SampleFmt()), tc.OriginAudioTrack.SoundRate, 0, 0)
 	ret = pSwrCtx.SwrInit()
 	if ret != 0 {
-		log.Fatal("pSwrCtx.SwrInit:", ret)
+		utils.Println("pSwrCtx.SwrInit:", ret)
+		return
 	}
 	frame0 := avutil.AvFrameAlloc()
 	defer avutil.AvFrameFree(frame0)
@@ -232,7 +238,7 @@ func (tc *TransCoder) transcode(s *Stream, encCodec string) {
 		}
 	}
 	tc.PlayAudio(tc.OriginAudioTrack)
-	
+
 }
 func cdata2go(data *uint8, size int) (payload []byte) {
 	p := uintptr(unsafe.Pointer(data))
