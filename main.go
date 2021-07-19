@@ -113,8 +113,7 @@ func (tc *TransCoder) leave(subscriber *Subscriber) {
 		tc.Close()
 	}
 }
-func onRequest(req interface{}) {
-	tc := req.(*TransCodeReq)
+func onRequest(tc *TransCodeReq) {
 	subscriber := tc.Subscriber
 	if _, ok := reqs[tc.RequestCodec]; !ok {
 		reqs[tc.RequestCodec] = make(map[*Stream]*TransCoder)
@@ -128,10 +127,9 @@ func onRequest(req interface{}) {
 		go t.transcode(subscriber.Stream, tc.RequestCodec)
 	}
 }
-func onUnsubscribe(sub interface{}) {
-	s := sub.(*Subscriber)
+func onUnsubscribe(sub *Subscriber) {
 	for _, req := range reqs {
-		if tc, ok := req[s.Stream]; ok {
+		if tc, ok := req[sub.Stream]; ok {
 			tc.leave(s)
 		}
 	}
