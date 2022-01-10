@@ -6,8 +6,9 @@ require (
 	github.com/Monibuca/engine/v3 v3.0.0-alpha7
 	github.com/Monibuca/utils/v3 v3.0.5
 	//github.com/giorgisio/goav v0.1.0
-	github.com/asticode/goav v1.5.1
+	github.com/charlestamz/goav v1.5.3
 )
 
-
-replace github.com/asticode/goav => ../goav
+//replace github.com/charlestamz/goav => ../goav
+//
+//replace github.com/Monibuca/engine/v3 => ../engine
