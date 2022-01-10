@@ -1,6 +1,8 @@
 package plugin_ffmpeg
 
 //#cgo pkg-config: libavformat libavcodec libavutil libswresample
+////#cgo LDFLAGS: -lavformat -lavutil -lavcodec -lswresample
+////#cgo CFLAGS: -Wno-deprecated -I
 //#include <stdio.h>
 //#include <stdlib.h>
 //#include <inttypes.h>
@@ -16,10 +18,10 @@ import (
 
 	. "github.com/Monibuca/engine/v3"
 	"github.com/Monibuca/utils/v3"
-	"github.com/asticode/goav/avcodec"
-	"github.com/asticode/goav/avformat"
-	"github.com/asticode/goav/avutil"
-	"github.com/asticode/goav/swresample"
+	"github.com/charlestamz/goav/avcodec"
+	"github.com/charlestamz/goav/avformat"
+	"github.com/charlestamz/goav/avutil"
+	"github.com/charlestamz/goav/swresample"
 )
 
 /*
@@ -89,11 +91,11 @@ func init() {
 		"pcmu": avcodec.AvcodecFindEncoder(avcodec.CodecId(avcodec.AV_CODEC_ID_PCM_MULAW)),
 	}
 	HasTranscoder = true
-	InstallPlugin(&PluginConfig{
+	plugin := PluginConfig{
 		Name:   "FFMPEG",
 		Config: &config,
-		Run:    run,
-	})
+	}
+	plugin.Install(run)
 }
 
 type TransCoder struct {
