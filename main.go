@@ -126,12 +126,11 @@ func onRequest(tc *TransCodeReq) {
 	if _, ok := reqmap[subscriber.Stream]; !ok {
 		reqmap[subscriber.Stream] = &TransCoder{make(map[*Subscriber]*struct{}), nil}
 	}
-	t := reqmap[subscriber.Stream]
-	if t.request(subscriber) {
-		go t.transcode(subscriber.Stream, tc.RequestCodec)
+	if t := reqmap[subscriber.Stream]; t.request(subscriber) {
+		t.transcode(subscriber.Stream, tc.RequestCodec)
 	}
 }
-func onUnsubscribe(sub *Subscriber) {
+func onUnsubscribe(sub *Subscriber, count int) {
 	for _, req := range reqs {
 		if tc, ok := req[sub.Stream]; ok {
 			tc.leave(sub)
@@ -139,8 +138,8 @@ func onUnsubscribe(sub *Subscriber) {
 	}
 }
 func run() {
-	go AddHook(HOOK_REQUEST_TRANSAUDIO, onRequest)
-	go AddHook(HOOK_UNSUBSCRIBE, onUnsubscribe)
+	go AddHookGo(HOOK_REQUEST_TRANSAUDIO, onRequest)
+	AddHook(HOOK_UNSUBSCRIBE, onUnsubscribe)
 }
 func soundType2Layout(st byte) int64 {
 	if st == 1 {
@@ -155,6 +154,7 @@ func (tc *TransCoder) transcode(s *Stream, encCodec string) {
 		ID: "ffmpeg",
 	}
 	s.Subscribe(tc.Subscriber)
+	utils.Println("ffmpeg transcode", s.StreamPath, encCodec)
 	pSwrCtx := swresample.SwrAlloc()
 	//defer pSwrCtx.SwrFree()
 	var decCtx *avcodec.Context
@@ -232,8 +232,8 @@ func (tc *TransCoder) transcode(s *Stream, encCodec string) {
 		return
 	}
 	defer encCtx.AvcodecClose()
-	utils.Println("swr:", soundType2Layout(at.Channels), swresample.AvSampleFormat(encCtx.SampleFmt()), encCtx.SampleRate(), soundType2Layout(tc.WaitAudioTrack().Channels), swresample.AvSampleFormat(decCtx.SampleFmt()), tc.WaitAudioTrack().SoundRate)
-	pSwrCtx.SwrAllocSetOpts(soundType2Layout(at.Channels), swresample.AvSampleFormat(encCtx.SampleFmt()), encCtx.SampleRate(), soundType2Layout(tc.WaitAudioTrack().Channels), swresample.AvSampleFormat(decCtx.SampleFmt()), tc.WaitAudioTrack().SoundRate, 0, 0)
+	utils.Println("swr:", soundType2Layout(at.Channels), swresample.AvSampleFormat(encCtx.SampleFmt()), encCtx.SampleRate(), soundType2Layout(audioTrack.Channels), swresample.AvSampleFormat(decCtx.SampleFmt()), audioTrack.SoundRate)
+	pSwrCtx.SwrAllocSetOpts(soundType2Layout(at.Channels), swresample.AvSampleFormat(encCtx.SampleFmt()), encCtx.SampleRate(), soundType2Layout(audioTrack.Channels), swresample.AvSampleFormat(decCtx.SampleFmt()), audioTrack.SoundRate, 0, 0)
 	if ret = pSwrCtx.SwrInit(); ret != 0 {
 		utils.Println("pSwrCtx.SwrInit:", ret)
 		return
@@ -277,7 +277,7 @@ func (tc *TransCoder) transcode(s *Stream, encCodec string) {
 			// }
 		}
 	}
-	tc.PlayAudio(tc.WaitAudioTrack())
+	tc.PlayAudio(audioTrack)
 
 }
 func cdata2go(data *uint8, size int) (payload []byte) {
