@@ -2,13 +2,13 @@ module m7s.live/plugin/ffmpeg/v4
 
 go 1.18
 
-require (
-	github.com/charlestamz/goav v1.5.4
-	m7s.live/engine/v4 v4.6.7
-)
+require m7s.live/engine/v4 v4.6.7
+
+require github.com/ying32/dylib v0.0.0-20220227124818-fdf9ea9fbc96 // indirect
 
 require (
 	github.com/cnotch/ipchub v1.1.0 // indirect
+	github.com/dwdcth/ffmpeg-go v0.0.0-20231229072056-ead8c7f0c0c4
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
@@ -23,13 +23,9 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.21.0 // indirect
+	go.uber.org/zap v1.21.0
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220111092808-5a964db01320 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
-
-//replace github.com/charlestamz/goav => ../goav
-//
-//replace github.com/Monibuca/engine/v3 => ../engine
