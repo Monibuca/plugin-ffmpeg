@@ -1,6 +1,6 @@
 module m7s.live/plugin/ffmpeg/v4
 
-go 1.21
+go 1.20
 
 require m7s.live/engine/v4 v4.15.1
 
@@ -9,9 +9,11 @@ require (
 	github.com/bluenviron/mediacommon v1.9.2 // indirect
 	github.com/cnotch/ipchub v1.1.0 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
+	github.com/dwdcth/ffmpeg-go/v6 v6.0.0-20240308071944-b15b3a64b15a // indirect
 	github.com/ebitengine/purego v0.7.0-alpha.3 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
+	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/pprof v0.0.0-20240227163752-401108e1b7e7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/logrusorgru/aurora/v4 v4.0.0 // indirect
@@ -24,7 +26,8 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/q191201771/naza v0.30.48 // indirect
-	github.com/quic-go/quic-go v0.41.0 // indirect
+	github.com/quic-go/qtls-go1-20 v0.3.3 // indirect
+	github.com/quic-go/quic-go v0.38.1 // indirect
 	github.com/shirou/gopsutil/v3 v3.24.2 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/tklauser/go-sysconf v0.3.13 // indirect
@@ -43,7 +46,6 @@ require (
 )
 
 require (
-	github.com/dwdcth/ffmpeg-go/v6 v6.1.0-fix
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0
 	golang.org/x/sys v0.18.0 // indirect
