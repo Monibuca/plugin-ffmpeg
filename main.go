@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"runtime"
 
-	"github.com/dwdcth/ffmpeg-go/ffcommon"
+	"github.com/dwdcth/ffmpeg-go/v6/ffcommon"
 	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
 )
