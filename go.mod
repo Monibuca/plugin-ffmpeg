@@ -1,6 +1,6 @@
 module m7s.live/plugin/ffmpeg/v4
 
-go 1.21
+go 1.20
 
 require m7s.live/engine/v4 v4.15.1
 
