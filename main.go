@@ -1,7 +1,6 @@
 package plugin_ffmpeg
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -68,8 +67,9 @@ func SetAvLib() error {
 				exp = regexp.MustCompile(k + `(\.\d+)?\.so`)
 			}
 			filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+				FFmpegPlugin.Debug("search lib", zap.String("path", path))
 				if err != nil {
-					fmt.Println(err)
+					FFmpegPlugin.Error("search lib error", zap.Error(err))
 					return nil
 				}
 				if !info.IsDir() && exp.MatchString(info.Name()) {
