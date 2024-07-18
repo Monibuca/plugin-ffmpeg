@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 
 	"github.com/dwdcth/ffmpeg-go/v6/ffcommon"
 	"go.uber.org/zap"
@@ -54,7 +55,7 @@ func SetAvLib() error {
 		searchDirs = append(searchDirs, ".", "/usr/local/lib", "/usr/lib", "/usr/lib/x86_64-linux-gnu")
 	}
 
-	for _, dir := range searchDirs {
+	for i, dir := range searchDirs {
 		var founds int
 		for k, f := range fnMap {
 			var exp *regexp.Regexp
@@ -66,19 +67,38 @@ func SetAvLib() error {
 			default:
 				exp = regexp.MustCompile(k + `(\.\d+)?\.so`)
 			}
-			filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-				FFmpegPlugin.Debug("search lib", zap.String("path", path))
-				if err != nil {
-					FFmpegPlugin.Error("search lib error", zap.Error(err))
+			if i == 0 {
+				filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+					if strings.HasPrefix(path, ".git") {
+						return nil
+					}
+					FFmpegPlugin.Debug("search lib", zap.String("path", path))
+					if err != nil {
+						FFmpegPlugin.Error("search lib error", zap.Error(err))
+						return nil
+					}
+					if !info.IsDir() && exp.MatchString(info.Name()) {
+						FFmpegPlugin.Info("load lib", zap.String("path", path))
+						f(path)
+						founds++
+					}
 					return nil
+				})
+			} else {
+				// 遍历一层目录
+				files, err := os.ReadDir(dir)
+				if err != nil {
+					FFmpegPlugin.Error("read dir error", zap.Error(err))
+					continue
 				}
-				if !info.IsDir() && exp.MatchString(info.Name()) {
-					FFmpegPlugin.Info("load lib", zap.String("path", path))
-					f(path)
-					founds++
+				for _, file := range files {
+					if !file.IsDir() && exp.MatchString(file.Name()) {
+						FFmpegPlugin.Info("load lib", zap.String("path", filepath.Join(dir, file.Name())))
+						f(filepath.Join(dir, file.Name()))
+						founds++
+					}
 				}
-				return nil
-			})
+			}
 		}
 		if founds == libNum {
 			return nil
